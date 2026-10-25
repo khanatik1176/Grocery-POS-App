@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { requestPasswordReset } from "../api/auth";
 import { apiError } from "../api/client";
 import { MudiMark } from "../components/MudiMark";
+import { Bone, SkeletonGroup } from "../components/skeleton";
 import { Button, Field } from "../components/ui";
 
 export function ForgotPasswordScreen({
@@ -41,6 +42,18 @@ export function ForgotPasswordScreen({
             We will send a 6-digit code to the account email.
           </Text>
           <View className="mt-8 rounded-3xl bg-paper p-5">
+            {busy ? (
+              <SkeletonGroup>
+                <Bone height={10} width="22%" tone="light" />
+                <View className="mt-2">
+                  <Bone height={48} radius={16} tone="light" />
+                </View>
+                <View className="mt-4">
+                  <Bone height={48} radius={24} tone="light" />
+                </View>
+              </SkeletonGroup>
+            ) : (
+              <>
             <Field
               label="Email"
               autoCapitalize="none"
@@ -53,6 +66,8 @@ export function ForgotPasswordScreen({
             <View className="mt-3">
               <Button label="Back to sign in" onPress={onBack} variant="secondary" />
             </View>
+              </>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

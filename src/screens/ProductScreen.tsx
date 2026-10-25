@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { apiError, mediaUrl } from "../api/client";
 import { fetchProduct, updatePreorder, type ProductDetail } from "../api/pos";
 import type { SessionUser } from "../api/types";
+import { DetailSkeleton } from "../components/skeleton";
 import { Button, Field, Notice, TopBar } from "../components/ui";
 import { can } from "../pos/access";
 import { prettyDate, priceSpan, taka } from "../pos/format";
@@ -24,6 +25,7 @@ export function ProductScreen({
   const [notify, setNotify] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   function apply(detail: ProductDetail) {
     setProduct(detail);
@@ -33,9 +35,27 @@ export function ProductScreen({
   }
 
   useEffect(() => {
+    let active = true;
+    setLoading(true);
     fetchProduct(barcode)
-      .then((response) => apply(response.data))
-      .catch((err) => setError(apiError(err)));
+      .then((response) => {
+        if (active) {
+          apply(response.data);
+        }
+      })
+      .catch((err) => {
+        if (active) {
+          setError(apiError(err));
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
   }, [barcode]);
 
   async function save(payload: Record<string, number | boolean | null>) {
@@ -58,7 +78,8 @@ export function ProductScreen({
       <TopBar title={product?.name ?? "Product"} onBack={onBack} />
       <ScrollView contentContainerClassName="px-4 pb-12">
         <Notice text={error} />
-        {product ? (
+        {loading ? <DetailSkeleton /> : null}
+        {!loading && product ? (
           <View className="gap-3">
             <View className="rounded-3xl bg-paper p-4">
               <View className="flex-row gap-3">

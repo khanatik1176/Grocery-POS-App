@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { apiError } from "../api/client";
 import { fetchCapabilityCatalog, fetchManagerAccess, saveManagerAccess, type Capability, type ManagerAccess } from "../api/pos";
+import { PageListSkeleton, StatBlockSkeleton } from "../components/skeleton";
 import { Button, Notice, TopBar } from "../components/ui";
 
 export function AccessScreen({ onBack, onOpenPeople }: { onBack: () => void; onOpenPeople: () => void }) {
@@ -13,6 +14,7 @@ export function AccessScreen({ onBack, onOpenPeople }: { onBack: () => void; onO
   const [chosen, setChosen] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([fetchCapabilityCatalog(), fetchManagerAccess()])
@@ -25,7 +27,8 @@ export function AccessScreen({ onBack, onOpenPeople }: { onBack: () => void; onO
           setChosen(first.capabilities);
         }
       })
-      .catch((err) => setError(apiError(err)));
+      .catch((err) => setError(apiError(err)))
+      .finally(() => setLoading(false));
   }, []);
 
   const groups = catalog.reduce<Record<string, Capability[]>>((acc, item) => {
@@ -70,6 +73,13 @@ export function AccessScreen({ onBack, onOpenPeople }: { onBack: () => void; onO
         </Text>
         <Notice text={error} />
         <Button label="Roles and users" variant="secondary" onPress={onOpenPeople} />
+        {loading ? (
+          <View className="mt-4 gap-3">
+            <PageListSkeleton rows={2} thumb={false} />
+            <StatBlockSkeleton />
+          </View>
+        ) : (
+        <>
         <View className="mt-4 gap-2">
           {managers.map((person) => (
             <Pressable
@@ -111,6 +121,8 @@ export function AccessScreen({ onBack, onOpenPeople }: { onBack: () => void; onO
             <Button label="Save access" onPress={() => void save()} busy={busy} />
           </View>
         ) : null}
+        </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

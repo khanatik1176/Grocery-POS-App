@@ -13,6 +13,7 @@ import {
   type Accounting,
 } from "../api/pos";
 import type { SessionUser } from "../api/types";
+import { StatBlockSkeleton } from "../components/skeleton";
 import { Button, Field, Notice, TopBar } from "../components/ui";
 import { can } from "../pos/access";
 import { isIsoDate, prettyDate, taka } from "../pos/format";
@@ -31,11 +32,13 @@ export function AccountingScreen({ user, onBack }: { user: SessionUser; onBack: 
   const [due, setDue] = useState("");
   const [collect, setCollect] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   function load() {
     return fetchAccounting()
       .then((response) => setData(response.data))
-      .catch((err) => setError(apiError(err)));
+      .catch((err) => setError(apiError(err)))
+      .finally(() => setLoading(false));
   }
 
   useEffect(() => {
@@ -60,7 +63,8 @@ export function AccountingScreen({ user, onBack }: { user: SessionUser; onBack: 
       <TopBar title="Accounting" onBack={onBack} />
       <ScrollView contentContainerClassName="px-4 pb-12" keyboardShouldPersistTaps="handled">
         <Notice text={error} />
-        {data?.today ? (
+        {loading ? <StatBlockSkeleton /> : null}
+        {!loading && data?.today ? (
           <View className="mb-3 rounded-3xl bg-paper p-4">
             <Text className="text-sm text-mist">Today</Text>
             <Text className="mt-1 text-2xl font-bold text-ink">{taka(data.today.sales_total)}</Text>
@@ -69,7 +73,7 @@ export function AccountingScreen({ user, onBack }: { user: SessionUser; onBack: 
             </Text>
           </View>
         ) : null}
-        {data?.vendors ? (
+        {!loading && data?.vendors ? (
           <View className="mb-3 rounded-3xl bg-paper p-4">
             <Text className="text-lg font-bold text-ink">Vendors</Text>
             {data.vendors.length === 0 ? <Text className="mt-2 text-mist">No purchases yet.</Text> : null}
@@ -101,7 +105,7 @@ export function AccountingScreen({ user, onBack }: { user: SessionUser; onBack: 
             ) : null}
           </View>
         ) : null}
-        {data?.partners ? (
+        {!loading && data?.partners ? (
           <View className="mb-3 rounded-3xl bg-paper p-4">
             <Text className="text-lg font-bold text-ink">Profit sharing</Text>
             {data.partners.shares.map((row) => (
@@ -124,7 +128,7 @@ export function AccountingScreen({ user, onBack }: { user: SessionUser; onBack: 
             </View>
           </View>
         ) : null}
-        {data?.loans ? (
+        {!loading && data?.loans ? (
           <View className="rounded-3xl bg-paper p-4">
             <Text className="text-lg font-bold text-ink">Lending to collect</Text>
             {data.loans.length === 0 ? <Text className="mt-2 text-mist">Nothing is outstanding.</Text> : null}

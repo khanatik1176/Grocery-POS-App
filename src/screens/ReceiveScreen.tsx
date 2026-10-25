@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { apiError } from "../api/client";
 import { fetchPlaces, fetchProduct, receiveStock, type Place } from "../api/pos";
 import { ScannerPane } from "../components/ScannerPane";
+import { Bone, PageFormSkeleton, SkeletonGroup } from "../components/skeleton";
 import { Button, Field, Notice, TopBar } from "../components/ui";
 import { isIsoDate } from "../pos/format";
 
@@ -33,6 +34,7 @@ export function ReceiveScreen({
   const [image, setImage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchPlaces()
@@ -42,7 +44,8 @@ export function ReceiveScreen({
           setLocation(response.data[0].name);
         }
       })
-      .catch((err) => setError(apiError(err)));
+      .catch((err) => setError(apiError(err)))
+      .finally(() => setLoading(false));
   }, []);
 
   async function lookup(code: string) {
@@ -107,6 +110,15 @@ export function ReceiveScreen({
     <SafeAreaView className="flex-1 bg-ink">
       <TopBar title="Add stock" onBack={onBack} />
       <ScrollView contentContainerClassName="px-4 pb-12" keyboardShouldPersistTaps="handled">
+        {loading ? (
+          <View className="gap-3">
+            <SkeletonGroup>
+              <Bone height={220} radius={24} />
+            </SkeletonGroup>
+            <PageFormSkeleton fields={6} />
+          </View>
+        ) : (
+        <>
         <ScannerPane
           paused={paused}
           onPause={() => setPaused(true)}
@@ -153,6 +165,8 @@ export function ReceiveScreen({
           </View>
           <Button label="Save batch" onPress={() => void save()} busy={busy} />
         </View>
+        </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

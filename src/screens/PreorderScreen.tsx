@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { apiError } from "../api/client";
 import { fetchPreorderDefaults, savePreorderDefaults } from "../api/pos";
+import { PageFormSkeleton } from "../components/skeleton";
 import { Button, Field, Notice, TopBar } from "../components/ui";
 
 export function PreorderScreen({ onBack }: { onBack: () => void }) {
@@ -13,6 +14,7 @@ export function PreorderScreen({ onBack }: { onBack: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchPreorderDefaults()
@@ -21,7 +23,8 @@ export function PreorderScreen({ onBack }: { onBack: () => void }) {
         setLead(String(response.data.lead_days));
         setNotify(response.data.notify_enabled);
       })
-      .catch((err) => setError(apiError(err)));
+      .catch((err) => setError(apiError(err)))
+      .finally(() => setLoading(false));
   }, []);
 
   async function save() {
@@ -46,6 +49,7 @@ export function PreorderScreen({ onBack }: { onBack: () => void }) {
     <SafeAreaView className="flex-1 bg-ink">
       <TopBar title="Pre-order alerts" onBack={onBack} />
       <ScrollView contentContainerClassName="px-4 pb-12" keyboardShouldPersistTaps="handled">
+        {loading ? <PageFormSkeleton fields={3} /> : (
         <View className="rounded-3xl bg-paper p-4">
           <Notice text={error} />
           {message ? <Text className="mb-3 rounded-xl bg-cream px-3 py-2 text-sm text-ink">{message}</Text> : null}
@@ -56,6 +60,7 @@ export function PreorderScreen({ onBack }: { onBack: () => void }) {
             <Button label="Save defaults" onPress={() => void save()} busy={busy} />
           </View>
         </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

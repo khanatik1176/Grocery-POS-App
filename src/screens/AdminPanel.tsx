@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { createRole, createUser, fetchRoles, fetchUsers } from "../api/admin";
 import { apiError } from "../api/client";
 import type { Role, SessionUser } from "../api/types";
+import { PageFormSkeleton } from "../components/skeleton";
 import { Button, Field } from "../components/ui";
 
 export function AdminPanel({
@@ -24,6 +25,7 @@ export function AdminPanel({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     const [roleResponse, userResponse] = await Promise.all([fetchRoles(), fetchUsers()]);
@@ -33,7 +35,21 @@ export function AdminPanel({
   }, []);
 
   useEffect(() => {
-    load().catch((err: unknown) => setError(apiError(err)));
+    let active = true;
+    load()
+      .catch((err: unknown) => {
+        if (active) {
+          setError(apiError(err));
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
   }, [load]);
 
   async function addRole() {
@@ -84,6 +100,13 @@ export function AdminPanel({
       <ScrollView contentContainerClassName="px-6 py-6" keyboardShouldPersistTaps="handled">
         <Text className="text-sm font-semibold uppercase tracking-wide text-saffron">Admin panel</Text>
         <Text className="mt-2 text-3xl font-black text-cream">Roles and users</Text>
+        {loading ? (
+          <View className="mt-6 gap-4">
+            <PageFormSkeleton fields={1} />
+            <PageFormSkeleton fields={4} />
+          </View>
+        ) : (
+        <>
         <View className="mt-6 rounded-3xl bg-paper p-5">
           <Text className="mb-3 text-lg font-semibold text-ink">Add a role</Text>
           <Field label="Role name" value={roleName} onChangeText={setRoleName} />
@@ -140,6 +163,8 @@ export function AdminPanel({
             ))}
           </View>
         </View>
+        </>
+        )}
         <View className="mt-4 gap-3">
           <Button label="Back to dashboard" onPress={onBack} variant="secondary" />
           <Button label="Sign out" onPress={onSignOut} variant="danger" />

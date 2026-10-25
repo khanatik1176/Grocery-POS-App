@@ -7,6 +7,7 @@ import { login } from "../api/auth";
 import type { SessionUser } from "../api/types";
 import { saveToken } from "../auth/storage";
 import { MudiMark } from "../components/MudiMark";
+import { Bone, SkeletonGroup } from "../components/skeleton";
 import { Button, Field } from "../components/ui";
 
 export function LoginScreen({
@@ -53,6 +54,24 @@ export function LoginScreen({
           <View className="mt-8 overflow-hidden rounded-[28px] bg-paper">
             <View className="h-2 bg-saffron" />
             <View className="p-5">
+              {busy ? (
+                <SkeletonGroup>
+                  <Bone height={10} width="22%" tone="light" />
+                  <View className="mt-2">
+                    <Bone height={48} radius={16} tone="light" />
+                  </View>
+                  <View className="mt-4">
+                    <Bone height={10} width="28%" tone="light" />
+                  </View>
+                  <View className="mt-2">
+                    <Bone height={48} radius={16} tone="light" />
+                  </View>
+                  <View className="mt-4">
+                    <Bone height={48} radius={24} tone="light" />
+                  </View>
+                </SkeletonGroup>
+              ) : (
+                <>
               <Field
                 label="Email"
                 autoCapitalize="none"
@@ -72,6 +91,8 @@ export function LoginScreen({
               <View className="mt-3">
                 <Button label="Forgot password" onPress={onForgot} variant="secondary" />
               </View>
+                </>
+              )}
             </View>
             <View className="border-t border-dashed border-mist bg-cream px-5 py-4">
               <Text className="text-xs font-semibold uppercase tracking-wider text-mist">Counter keys</Text>

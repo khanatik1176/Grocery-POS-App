@@ -1,11 +1,11 @@
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { fetchMe, logout } from "./src/api/auth";
 import type { SessionUser } from "./src/api/types";
 import { clearToken, readToken } from "./src/auth/storage";
+import { BootSkeleton } from "./src/components/skeleton";
 import { AdminPanel } from "./src/screens/AdminPanel";
 import { ForgotPasswordScreen } from "./src/screens/ForgotPasswordScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
@@ -75,11 +75,7 @@ export default function App() {
     setScreen("login");
   }
 
-  let body = (
-    <View className="flex-1 items-center justify-center bg-ink">
-      <ActivityIndicator color="#E6A11A" />
-    </View>
-  );
+  let body = <BootSkeleton />;
 
   if (screen === "login") {
     body = <LoginScreen onSignedIn={openSession} onForgot={() => setScreen("forgot")} />;

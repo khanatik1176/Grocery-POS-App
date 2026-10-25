@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { apiError } from "../api/client";
 import { createBundle, deleteBundle, fetchBundles, type Bundle } from "../api/pos";
+import { PageListSkeleton } from "../components/skeleton";
 import { Button, Field, Notice, TopBar } from "../components/ui";
 import { taka } from "../pos/format";
 
@@ -17,11 +18,13 @@ export function BundlesScreen({ onBack }: { onBack: () => void }) {
   ]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   function load() {
     return fetchBundles()
       .then((response) => setBundles(response.data))
-      .catch((err) => setError(apiError(err)));
+      .catch((err) => setError(apiError(err)))
+      .finally(() => setLoading(false));
   }
 
   useEffect(() => {
@@ -61,6 +64,8 @@ export function BundlesScreen({ onBack }: { onBack: () => void }) {
           Combos stay off the product list. Each included product shows a combo marker, and a combo sale reduces those products.
         </Text>
         <Notice text={error} />
+        {loading ? <PageListSkeleton rows={3} thumb={false} /> : (
+        <>
         <View className="gap-3">
           {bundles.map((bundle) => (
             <View key={bundle.name} className="rounded-3xl bg-paper p-4">
@@ -123,6 +128,8 @@ export function BundlesScreen({ onBack }: { onBack: () => void }) {
             <Button label="Save combo" onPress={() => void save()} busy={busy} />
           </View>
         </View>
+        </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

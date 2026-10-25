@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { apiError } from "../api/client";
 import { createPlace, deletePlace, fetchPlaces, type Place } from "../api/pos";
+import { PageListSkeleton } from "../components/skeleton";
 import { Button, Field, Notice, TopBar } from "../components/ui";
 
 const KINDS: Place["kind"][] = ["warehouse", "shop", "other"];
@@ -14,11 +15,13 @@ export function LocationsScreen({ onBack }: { onBack: () => void }) {
   const [kind, setKind] = useState<Place["kind"]>("shop");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   function load() {
     return fetchPlaces()
       .then((response) => setPlaces(response.data))
-      .catch((err) => setError(apiError(err)));
+      .catch((err) => setError(apiError(err)))
+      .finally(() => setLoading(false));
   }
 
   useEffect(() => {
@@ -54,6 +57,8 @@ export function LocationsScreen({ onBack }: { onBack: () => void }) {
       <TopBar title="Places" onBack={onBack} />
       <ScrollView contentContainerClassName="px-4 pb-12" keyboardShouldPersistTaps="handled">
         <Notice text={error} />
+        {loading ? <PageListSkeleton rows={4} thumb={false} /> : (
+        <>
         <View className="gap-3">
           {places.map((place) => (
             <View key={place.name} className="flex-row items-center justify-between rounded-3xl bg-paper p-4">
@@ -83,6 +88,8 @@ export function LocationsScreen({ onBack }: { onBack: () => void }) {
           </View>
           <Button label="Add place" onPress={() => void add()} busy={busy} />
         </View>
+        </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { apiError, mediaUrl } from "../api/client";
 import { fetchProducts, type ProductRow } from "../api/pos";
 import type { SessionUser } from "../api/types";
+import { PageListSkeleton } from "../components/skeleton";
 import { Notice, TopBar } from "../components/ui";
 import { can } from "../pos/access";
 import { prettyDate, priceSpan } from "../pos/format";
@@ -29,9 +30,11 @@ export function InventoryScreen({
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<ProductRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
+    setLoading(true);
     const handle = setTimeout(() => {
       fetchProducts(query.trim())
         .then((response) => {
@@ -43,6 +46,11 @@ export function InventoryScreen({
         .catch((err) => {
           if (active) {
             setError(apiError(err));
+          }
+        })
+        .finally(() => {
+          if (active) {
+            setLoading(false);
           }
         });
     }, 200);
@@ -78,7 +86,8 @@ export function InventoryScreen({
           ))}
         </View>
         <Notice text={error} />
-        {rows.length === 0 && !error ? (
+        {loading ? <PageListSkeleton /> : null}
+        {!loading && rows.length === 0 && !error ? (
           <View className="rounded-3xl bg-paper p-5">
             <Text className="text-lg font-semibold text-ink">The shelf is empty</Text>
             <Text className="mt-2 text-base leading-6 text-mist">
@@ -86,7 +95,7 @@ export function InventoryScreen({
             </Text>
           </View>
         ) : null}
-        <View className="gap-3">
+        {!loading ? <View className="gap-3">
           {rows.map((row) => {
             const image = mediaUrl(row.image);
             return (
@@ -132,7 +141,7 @@ export function InventoryScreen({
               </Pressable>
             );
           })}
-        </View>
+        </View> : null}
       </ScrollView>
     </SafeAreaView>
   );

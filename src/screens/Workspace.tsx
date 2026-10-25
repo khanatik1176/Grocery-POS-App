@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { fetchMe } from "../api/auth";
 import type { SessionUser } from "../api/types";
 import { MudiMark } from "../components/MudiMark";
+import { HomeSkeleton } from "../components/skeleton";
 import { Button } from "../components/ui";
 import { can } from "../pos/access";
 import { AccessScreen } from "./AccessScreen";
@@ -45,19 +46,26 @@ export function Workspace({
   onOpenPeople: () => void;
 }) {
   const [route, setRoute] = useState<Route>({ name: "home" });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (route.name !== "home") {
       return;
     }
     let active = true;
+    setLoading(true);
     fetchMe()
       .then((response) => {
         if (active) {
           onUser(response.data);
         }
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
     return () => {
       active = false;
     };
@@ -162,7 +170,11 @@ export function Workspace({
         <Text className="mt-8 text-4xl font-black leading-tight text-cream">
           {user.first_name || "Hello"},{"\n"}the counter is open.
         </Text>
-        {cards.length === 0 ? (
+        {loading ? (
+          <View className="mt-6">
+            <HomeSkeleton />
+          </View>
+        ) : cards.length === 0 ? (
           <View className="mt-6 overflow-hidden rounded-[28px] bg-paper">
             <View className="h-2 bg-saffron" />
             <View className="p-5">

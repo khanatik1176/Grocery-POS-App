@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { apiError } from "../api/client";
 import { fetchStoreSettings, saveStoreSettings, type StoreSettings } from "../api/pos";
+import { PageFormSkeleton } from "../components/skeleton";
 import { Button, Field, Notice, TopBar } from "../components/ui";
 
 export function SettingsScreen({ onBack }: { onBack: () => void }) {
@@ -11,11 +12,13 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchStoreSettings()
       .then((response) => setForm(response.data))
-      .catch((err) => setError(apiError(err)));
+      .catch((err) => setError(apiError(err)))
+      .finally(() => setLoading(false));
   }, []);
 
   function patch<K extends keyof StoreSettings>(key: K, value: StoreSettings[K]) {
@@ -45,7 +48,8 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
       <TopBar title="Store settings" onBack={onBack} />
       <ScrollView contentContainerClassName="px-4 pb-12" keyboardShouldPersistTaps="handled">
         <Notice text={error} />
-        {form ? (
+        {loading ? <PageFormSkeleton fields={7} /> : null}
+        {!loading && form ? (
           <View className="rounded-3xl bg-paper p-4">
             <Field label="Store name" value={form.store_name} onChangeText={(value) => patch("store_name", value)} />
             <Field label="bKash number" value={form.bkash_number} onChangeText={(value) => patch("bkash_number", value)} keyboardType="phone-pad" />

@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { apiError } from "../api/client";
 import { fetchSummary, type Summary } from "../api/pos";
+import { StatBlockSkeleton } from "../components/skeleton";
 import { Field, Notice, TopBar } from "../components/ui";
 import { prettyDate, taka } from "../pos/format";
 
@@ -24,23 +25,27 @@ export function SummaryScreen({ onBack }: { onBack: () => void }) {
   const [end, setEnd] = useState("");
   const [summary, setSummary] = useState<Summary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const params: Record<string, string> = { preset };
     if (preset === "date") {
       if (!date) {
+        setLoading(false);
         return;
       }
       params.date = date;
     }
     if (preset === "week_range" || preset === "range") {
       if (!start || !end) {
+        setLoading(false);
         return;
       }
       params.start = start;
       params.end = end;
     }
     let active = true;
+    setLoading(true);
     fetchSummary(params)
       .then((response) => {
         if (active) {
@@ -51,6 +56,11 @@ export function SummaryScreen({ onBack }: { onBack: () => void }) {
       .catch((err) => {
         if (active) {
           setError(apiError(err));
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
         }
       });
     return () => {
@@ -89,7 +99,8 @@ export function SummaryScreen({ onBack }: { onBack: () => void }) {
           </View>
         ) : null}
         <Notice text={error} />
-        {summary ? (
+        {loading ? <View className="mt-3"><StatBlockSkeleton /></View> : null}
+        {!loading && summary ? (
           <View className="mt-3 gap-3">
             <View className="rounded-3xl bg-paper p-4">
               <Text className="text-sm text-mist">

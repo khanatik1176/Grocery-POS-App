@@ -19,6 +19,7 @@ import {
 } from "../api/pos";
 import { QrMark } from "../components/QrMark";
 import { ScannerPane } from "../components/ScannerPane";
+import { Bone, PageListSkeleton, SkeletonGroup } from "../components/skeleton";
 import { Button, Field, Notice, TopBar } from "../components/ui";
 import { taka } from "../pos/format";
 import { printHtml } from "../pos/print";
@@ -49,6 +50,9 @@ export function SalesScreen({ onBack }: { onBack: () => void }) {
   const [sale, setSale] = useState<SaleResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [searching, setSearching] = useState(false);
+  const [quoting, setQuoting] = useState(false);
   const ignoredSms = useRef("");
   const seenSms = useRef("");
 
@@ -61,7 +65,8 @@ export function SalesScreen({ onBack }: { onBack: () => void }) {
           setLocation(shop.name);
         }
       })
-      .catch((err) => setError(apiError(err)));
+      .catch((err) => setError(apiError(err)))
+      .finally(() => setLoading(false));
     fetchPaymentConfig()
       .then((response) => setConfig(response.data))
       .catch(() => undefined);
@@ -70,9 +75,11 @@ export function SalesScreen({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     if (!query.trim()) {
       setCatalog(null);
+      setSearching(false);
       return;
     }
     let active = true;
+    setSearching(true);
     const handle = setTimeout(() => {
       fetchCatalog(query.trim(), location)
         .then((response) => {
@@ -80,7 +87,12 @@ export function SalesScreen({ onBack }: { onBack: () => void }) {
             setCatalog(response.data);
           }
         })
-        .catch(() => undefined);
+        .catch(() => undefined)
+        .finally(() => {
+          if (active) {
+            setSearching(false);
+          }
+        });
     }, 200);
     return () => {
       active = false;
@@ -101,9 +113,11 @@ export function SalesScreen({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     if (lines.length === 0) {
       setQuote(null);
+      setQuoting(false);
       return;
     }
     let active = true;
+    setQuoting(true);
     quoteSale(location, lines)
       .then((response) => {
         if (active) {
@@ -115,6 +129,11 @@ export function SalesScreen({ onBack }: { onBack: () => void }) {
         if (active) {
           setQuote(null);
           setError(apiError(err));
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setQuoting(false);
         }
       });
     return () => {
@@ -368,6 +387,21 @@ export function SalesScreen({ onBack }: { onBack: () => void }) {
     <SafeAreaView className="flex-1 bg-ink">
       <TopBar title="Sales" onBack={onBack} />
       <ScrollView contentContainerClassName="px-4 pb-28" keyboardShouldPersistTaps="handled">
+        {loading ? (
+          <View className="gap-3">
+            <SkeletonGroup>
+              <View className="flex-row gap-2">
+                <Bone width={84} height={36} radius={18} />
+                <Bone width={96} height={36} radius={18} />
+              </View>
+              <View className="mt-3">
+                <Bone height={220} radius={24} />
+              </View>
+            </SkeletonGroup>
+            <PageListSkeleton rows={3} thumb={false} />
+          </View>
+        ) : (
+        <>
         <View className="mb-3 flex-row flex-wrap gap-2">
           {places.map((place) => (
             <Pressable
@@ -389,7 +423,8 @@ export function SalesScreen({ onBack }: { onBack: () => void }) {
           className="mb-3 mt-3 rounded-full border border-bark bg-bark px-4 py-3 text-base text-cream"
         />
         <Notice text={error} />
-        {query.trim() && catalog ? (
+        {searching ? <View className="mb-3"><PageListSkeleton rows={3} thumb={false} /></View> : null}
+        {!searching && query.trim() && catalog ? (
           <View className="mb-3 gap-2">
             {catalog.products.map((product) => (
               <Pressable
@@ -436,7 +471,15 @@ export function SalesScreen({ onBack }: { onBack: () => void }) {
             </View>
           ))}
         </View>
-        {quote ? (
+        {quoting ? (
+          <SkeletonGroup>
+            <View className="mt-3 gap-2 rounded-2xl bg-bark p-3">
+              <Bone height={14} />
+              <Bone height={14} width="72%" />
+            </View>
+          </SkeletonGroup>
+        ) : null}
+        {!quoting && quote ? (
           <View className="mt-3 rounded-2xl bg-bark p-3">
             {quote.lines.map((line, index) => (
               <Text key={`${line.name}-${index}`} className="text-sm text-cream">
@@ -445,6 +488,8 @@ export function SalesScreen({ onBack }: { onBack: () => void }) {
             ))}
           </View>
         ) : null}
+        </>
+        )}
       </ScrollView>
       <View className="absolute bottom-0 left-0 right-0 bg-ink px-4 pb-6 pt-2">
         <Button label={`Charge ${taka(total)}`} disabled={!quote} onPress={() => setStage("pay")} />

@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { resetPassword } from "../api/auth";
 import { apiError } from "../api/client";
 import { MudiMark } from "../components/MudiMark";
+import { Bone, SkeletonGroup } from "../components/skeleton";
 import { Button, Field } from "../components/ui";
 
 export function ResetPasswordScreen({
@@ -46,6 +47,24 @@ export function ResetPasswordScreen({
           <Text className="mt-4 text-4xl font-black text-cream">Choose a new password</Text>
           <Text className="mt-2 text-base text-cream">{email}</Text>
           <View className="mt-8 rounded-3xl bg-paper p-5">
+            {busy ? (
+              <SkeletonGroup>
+                <Bone height={10} width="28%" tone="light" />
+                <View className="mt-2">
+                  <Bone height={48} radius={16} tone="light" />
+                </View>
+                <View className="mt-4">
+                  <Bone height={10} width="34%" tone="light" />
+                </View>
+                <View className="mt-2">
+                  <Bone height={48} radius={16} tone="light" />
+                </View>
+                <View className="mt-4">
+                  <Bone height={48} radius={24} tone="light" />
+                </View>
+              </SkeletonGroup>
+            ) : (
+              <>
             <Field label="Reset code" keyboardType="number-pad" value={code} onChangeText={setCode} />
             <Field label="New password" secureTextEntry value={password} onChangeText={setPassword} />
             {message ? <Text className="mb-3 text-sm text-leaf">{message}</Text> : null}
@@ -59,6 +78,8 @@ export function ResetPasswordScreen({
             <View className="mt-3">
               <Button label="Back to sign in" onPress={onDone} variant="secondary" />
             </View>
+              </>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
