@@ -1,0 +1,196 @@
+How Mudi works now
+==================
+
+Mudi is a neighborhood grocery register. It has two parts:
+
+1. Grocery-POS-App
+   The phone app. Expo SDK 58 and React Native. Screens live in src/screens.
+   There is no Expo Router. App.tsx switches screens itself.
+
+2. Grocery-POS-App-Backend
+   The API. Django and Django REST Framework. Postgres when DATABASE_URL is
+   set (Neon in this project). SQLite is used only when that URL is missing.
+   Money is stored as whole paisa. The API returns taka with two decimals.
+   A discount is stored as basis points (100 bps = 1 percent).
+
+The app talks to the API at EXPO_PUBLIC_API_URL. If that is unset, the app
+uses http://127.0.0.1:8001. On Android it rewrites 127.0.0.1 and localhost
+to 10.0.2.2. Every signed-in request sends "Authorization: Token <key>".
+
+
+Startup
+-------
+
+The app opens on a skeleton while it reads a saved token from secure storage
+(on the web it uses local storage). If a token exists, it calls GET
+/api/auth/me/. A valid session opens the counter. A missing or rejected
+token clears storage and shows sign-in.
+
+Sign-in is POST /api/auth/login/ with email and password. The API checks an
+active user who has a profile, then returns a token and the user. Sign-out
+calls POST /api/auth/logout/, deletes that token, and clears it on the phone.
+
+Forgot password posts the email to /api/auth/forgot-password/ and stores a
+6-digit PasswordResetCode. Reset password posts email, code, and the new
+password to /api/auth/reset-password/. While those requests run, the form
+is replaced by a skeleton.
+
+Seeded counter accounts, created by a migration:
+
+  Admin    admin@grocerypos.app     PosAdmin!2026     Amina Rahman
+  Manager  manager@grocerypos.app   PosManager!2026   Karim Hossain
+
+The admin role receives every job automatically. A manager can do nothing
+until an admin turns each job on.
+
+
+The counter
+-----------
+
+After sign-in the home screen is the counter. It refreshes the user with
+GET /api/auth/me/ and shows a menu skeleton until that returns. Each card
+appears only when the user has the matching capability:
+
+  Inventory    view, receive, places, combos, or alerts
+  Sales        sales.sell
+  Accounting   view, pay, profit, or lending
+  Summary      summary.view
+  Settings     store.settings
+  Access       admin role only
+
+Access can open the roles-and-users panel. That panel is also admin-only.
+
+
+What each screen does
+----------------------
+
+Inventory
+  GET /api/inventory/products/?q=
+  Lists products by name or barcode. Each row shows quantity, selling
+  range, MRP, soonest expiry, stock by place, and combo names. Empty
+  results show "The shelf is empty" only after loading finishes. A search
+  shows a list skeleton until the new results arrive. Opening a row loads
+  GET /api/inventory/products/<barcode>/, including batches and the
+  pre-order alert for that product.
+
+Add stock
+  The camera scanner stays on until it is paused. A code can also be typed.
+  Saving posts to POST /api/inventory/receive/. The same barcode with the
+  same dates, prices, source, and place adds quantity to that batch. A
+  different date, price, source, or place stays on the same product as a
+  new batch. A photo is optional. Places are loaded first; the form is a
+  skeleton until they arrive.
+
+Places
+  GET, POST, and DELETE /api/inventory/locations/. A place is a warehouse,
+  shop, or other. Warehouse and Shop are seeded.
+
+Combos
+  GET, POST, and DELETE /api/inventory/bundles/. A combo has its own price
+  and is not a product row. Each item points at a product and a quantity.
+  Selling the combo reduces those products.
+
+Pre-order alerts
+  GET and PUT /api/inventory/preorder/ are the store defaults (seeded as
+  reorder at 5, look ahead 7 days, alerts on). A product can override
+  reorder level, lead days, and whether alerts are on. Clearing those
+  fields returns that product to the store default.
+
+Sales
+  Places and wallet settings load first, behind a skeleton. The scanner
+  stays on until it is paused. Search calls GET /api/sales/catalog/ and
+  shows a skeleton while results load. The cart can mix products and combos.
+  POST /api/sales/quote/ prices the cart for the chosen place and shows a
+  skeleton until the quote returns. Charge opens payment: cash, bKash,
+  Nagad, or Rocket. Cash records the amount taken and the change. A wallet
+  shows a QR of wallet, merchant number, and total, then waits for a
+  payment SMS (or a pasted SMS, or a typed transaction number). POST
+  /api/sales/parse-sms/ reads the amount and transaction id. Checkout is
+  POST /api/sales/checkout/. It writes the sale, the lines, the stock
+  moves, and the receipt notices. The finished sale can be printed. A
+  public receipt page is GET /api/sales/receipts/<number>/.
+
+Accounting
+  GET /api/accounting/ returns today's sales, vendor balances, profit
+  shares, and loans, limited to the jobs this user has. Record a vendor
+  payment, set a partner share, add a loan, or collect against a loan.
+  The page is a skeleton until the first response arrives.
+
+Summary
+  GET /api/summary/?preset=... supports today, one date, this week, a week
+  range, 30 days, this month, and a custom range. It shows sales, profit,
+  and products at or under their reorder level. Changing the range shows
+  a skeleton until the new summary arrives.
+
+Settings
+  GET and PUT /api/store/settings/. One StoreConfig row (id 1) holds the
+  store name, bKash, Nagad, and Rocket numbers, the wallet wait in
+  seconds, SMS and email switches, the SMS template, and the public
+  receipt link. The form is a skeleton until that row loads.
+
+Access
+  GET /api/access/catalog/ lists every job. GET /api/access/managers/
+  lists managers and the jobs they already have. PUT
+  /api/access/managers/<user id>/ replaces that manager's grants.
+
+Roles and users
+  GET and POST /api/admin/roles/ and /api/admin/users/. Admin only. The
+  dashboard counts roles and users and shows skeletons in those boxes
+  until both lists return.
+
+
+Jobs
+----
+
+  inventory.view        see products
+  inventory.receive     add stock
+  inventory.locations   places
+  inventory.bundles     combos
+  inventory.preorder    alerts
+  sales.sell            sell
+  accounting.view       see vendor balances and daily sales
+  accounting.pay        record vendor payments
+  accounting.profit     profit sharing
+  accounting.lending    loans and collections
+  summary.view          sales ranges and reorder list
+  store.settings        wallets, receipts, and timeouts
+
+
+How a sale changes stock
+------------------------
+
+A product is identified by the barcode or QR already printed on it. Nothing
+extra is generated. A batch (StockLot) is one physical arrival: product,
+manufacturing date, expiry date, MRP, purchase price, discount, source, and
+place. Quantity lives on that batch.
+
+Checkout picks stock at the sale's place, writes a negative StockMove for
+what was sold, and lowers the matching StockLot. A combo sale does that for
+each product inside the combo. Receiving stock writes a positive move and
+raises the matching batch. Sale, SaleLine, and OutboundNotice record the
+receipt. SMS is currently a register log. Email uses the server mailer.
+Both can be switched off in settings.
+
+
+Loading
+-------
+
+Pages that wait on the API show a pulsing skeleton shaped like that page.
+The sign-in form, forgot-password form, and reset-password form do the
+same while their request is in progress. A button that is already submitting
+also shows its own busy state when the form stays on screen.
+
+
+Local run
+---------
+
+  API     Django on port 8001
+          python manage.py migrate
+          python manage.py runserver 0.0.0.0:8001
+          Health: GET /api/health/
+          Docs:   GET /api/docs/
+
+  App     npx expo start --ios
+          Point EXPO_PUBLIC_API_URL at http://127.0.0.1:8001
+
+Port 8000 on this machine is a different Django project. Mudi does not use it.
