@@ -1,0 +1,11 @@
+{
+    "build": {
+      "preview": {
+        "distribution": "internal",
+        "android": { "buildType": "apk" },
+        "env": {
+          "EXPO_PUBLIC_API_URL": "https://grocery-pos-app-backend-2jsy.onrender.com"
+        }
+      }
+    }
+  }

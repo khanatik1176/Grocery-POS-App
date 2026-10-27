@@ -4,8 +4,13 @@ How Mudi works now
 Mudi is a neighborhood grocery register. It has two parts:
 
 1. Grocery-POS-App
-   The phone app. Expo SDK 58 and React Native. Screens live in src/screens.
-   There is no Expo Router. App.tsx switches screens itself.
+   The phone app. Expo SDK 58 and React Native with Expo Router. Routes live
+   in src/app. Signed-out screens (sign-in, forgot-password, reset-password)
+   and the signed-in (app) group are separated with Stack.Protected. Inside
+   (app) there is a bottom tab bar: Sell, Inventory, Accounts, Reports, More.
+   A tab is hidden when the user lacks the job for it. Shared UI lives in
+   src/components (ui.tsx is the design kit), session state in
+   src/auth/session.tsx, and the cart in src/pos/cart.tsx.
 
 2. Grocery-POS-App-Backend
    The API. Django and Django REST Framework. Postgres when DATABASE_URL is
@@ -73,6 +78,16 @@ Inventory
   GET /api/inventory/products/<barcode>/, including batches and the
   pre-order alert for that product.
 
+Scan from inventory
+  The scan button in the inventory search bar opens a full-screen scanner.
+  A known code opens that product; a new code opens Receive with the code
+  filled in.
+
+Transfer
+  POST /api/inventory/transfer/ moves stock between places, earliest expiry
+  first. Each batch keeps its dates, prices, and source. Transfers are
+  recorded as StockMove kind "transfer" and never count as vendor purchases.
+
 Add stock
   The camera scanner stays on until it is paused. A code can also be typed.
   Saving posts to POST /api/inventory/receive/. The same barcode with the
@@ -100,9 +115,9 @@ Sales
   Places and wallet settings load first, behind a skeleton. The scanner
   stays on until it is paused. Search calls GET /api/sales/catalog/ and
   shows a skeleton while results load. The cart can mix products and combos.
-  POST /api/sales/quote/ prices the cart for the chosen place and shows a
-  skeleton until the quote returns. Charge opens payment: cash, bKash,
-  Nagad, or Rocket. Cash records the amount taken and the change. A wallet
+  POST /api/sales/quote/ prices the cart for the chosen place. Charge opens
+  checkout: cash, card, bKash, Nagad, or Rocket. Cash offers quick tender
+  amounts and shows the change. Cash records the amount taken and the change. A wallet
   shows a QR of wallet, merchant number, and total, then waits for a
   payment SMS (or a pasted SMS, or a typed transaction number). POST
   /api/sales/parse-sms/ reads the amount and transaction id. Checkout is
@@ -111,15 +126,26 @@ Sales
   public receipt page is GET /api/sales/receipts/<number>/.
 
 Accounting
-  GET /api/accounting/ returns today's sales, vendor balances, profit
-  shares, and loans, limited to the jobs this user has. Record a vendor
+  GET /api/accounting/?preset=... returns today's sales, the chosen
+  period, vendor balances, profit shares for that period, and loans,
+  limited to the jobs this user has. GET /api/accounting/vendors/<name>/
+  is the vendor ledger (purchases and payments with a running balance).
+  Lending is grouped as overdue, due within 7 days, within 30 days, later,
+  and settled. Record a vendor
   payment, set a partner share, add a loan, or collect against a loan.
   The page is a skeleton until the first response arrives.
 
 Summary
   GET /api/summary/?preset=... supports today, one date, this week, a week
   range, 30 days, this month, and a custom range. It shows sales, profit,
-  and products at or under their reorder level. Changing the range shows
+  average sale, a daily chart, payment-method split, top sellers, products
+  at or under their reorder level, and products expiring soon.
+  The Reports tab splits this into Overview, Sales, Products, and Stock.
+  Sales is the full register: GET /api/sales/history/?preset=...&method=
+  &q=&page= lists every sale in the period, 25 per page, searchable by
+  receipt number, product name, customer phone, or transaction ID.
+  GET /api/sales/history/<number>/ is one sale with its lines, cost,
+  profit, cashier, customer, receipt notices, and printable receipt. Changing the range shows
   a skeleton until the new summary arrives.
 
 Settings
@@ -145,6 +171,7 @@ Jobs
   inventory.view        see products
   inventory.receive     add stock
   inventory.locations   places
+  inventory.transfer    move stock between places
   inventory.bundles     combos
   inventory.preorder    alerts
   sales.sell            sell
@@ -172,6 +199,21 @@ receipt. SMS is currently a register log. Email uses the server mailer.
 Both can be switched off in settings.
 
 
+Paging
+------
+
+Lists that can grow without limit are paged on the server, 20 rows a page
+(25 for the sales register), and load the next page as you scroll:
+  GET /api/inventory/products/?page=&q=&filter=low|expiring|combo&location=
+      (returns count, page, pages, counts per filter, and results; without
+      ?page the full list is returned for pickers)
+  GET /api/sales/catalog/?q=&location=&page=   (combos come on page 1)
+  GET /api/accounting/vendors/<name>/?page=    (ledger entries)
+  GET /api/sales/history/?page=...
+Shorter lists that arrive in one response (vendors, lending, combos,
+places, users, report lists, product batches, transfer picker) show 10 at
+a time with a "Show more" button.
+
 Loading
 -------
 
@@ -190,7 +232,8 @@ Local run
           Health: GET /api/health/
           Docs:   GET /api/docs/
 
-  App     npx expo start --ios
-          Point EXPO_PUBLIC_API_URL at http://127.0.0.1:8001
+  App     npx expo start --android
+          Point EXPO_PUBLIC_API_URL at http://127.0.0.1:8001 (the Android
+          emulator reaches it as 10.0.2.2 automatically)
 
 Port 8000 on this machine is a different Django project. Mudi does not use it.

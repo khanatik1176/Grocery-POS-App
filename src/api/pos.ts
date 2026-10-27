@@ -1,5 +1,7 @@
 import { api } from "./client";
 
+export type PageMeta = { count: number; page: number; pages: number };
+
 export type Preorder = {
   reorder_level: number;
   lead_days: number;
@@ -40,7 +42,18 @@ export type Lot = {
   quantity: number;
 };
 
-export type ProductDetail = ProductRow & { lots: Lot[] };
+export type ProductDetail = ProductRow & {
+  lots: Lot[];
+  last_receipt: {
+    mrp: string;
+    purchase_rate: string;
+    discount_rate: string;
+    origin: string;
+    location: string;
+  } | null;
+};
+
+export type Vendor = { name: string; phone: string };
 
 export type Place = { name: string; kind: "warehouse" | "shop" | "other" };
 
@@ -104,7 +117,12 @@ export type SaleResult = Quote & {
   };
 };
 
-export type Catalog = {
+export type ProductPage = PageMeta & {
+  counts: { all: number; low: number; expiring: number; combo: number };
+  results: ProductRow[];
+};
+
+export type Catalog = PageMeta & {
   products: {
     kind: "product";
     barcode: string;
@@ -124,25 +142,48 @@ export type VendorRow = {
   balance: string;
 };
 
+export type Period = {
+  preset: string;
+  start: string;
+  end: string;
+  count: number;
+  sales_total: string;
+  profit: string;
+};
+
+export type Loan = {
+  id: number;
+  borrower: string;
+  amount: string;
+  collected: string;
+  outstanding: string;
+  opened_on: string;
+  due_on: string;
+  note: string;
+  overdue: boolean;
+};
+
+export type VendorLedger = VendorRow & PageMeta & {
+  entries: {
+    kind: "purchase" | "payment";
+    date: string;
+    title: string;
+    detail: string;
+    amount: string;
+    balance: string;
+  }[];
+};
+
 export type Accounting = {
   today: { date: string; count: number; sales_total: string; profit: string } | null;
+  period: Period | null;
   vendors: VendorRow[] | null;
   partners: {
     shares: { name: string; share: string; amount: string }[];
     shop_share: string;
     shop_amount: string;
   } | null;
-  loans: {
-    id: number;
-    borrower: string;
-    amount: string;
-    collected: string;
-    outstanding: string;
-    opened_on: string;
-    due_on: string;
-    note: string;
-    overdue: boolean;
-  }[] | null;
+  loans: Loan[] | null;
 };
 
 export type Summary = {
@@ -152,6 +193,11 @@ export type Summary = {
   count: number;
   sales_total: string;
   profit: string;
+  average: string;
+  by_method: { method: string; label: string; count: number; total: string }[];
+  by_day: { date: string; total: string; profit: string; count: number }[];
+  top_products: { name: string; kind: string; quantity: number; total: string }[];
+  expiring: { barcode: string; name: string; quantity: number; soonest_expiry: string | null }[];
   sales: { number: string; created_at: string; total: string; payment_method: string; location: string }[];
   depleted: {
     barcode: string;
@@ -160,6 +206,40 @@ export type Summary = {
     reorder_level: number;
     locations: { name: string; quantity: number }[];
   }[];
+};
+
+export type SaleRow = {
+  number: string;
+  created_at: string;
+  total: string;
+  profit: string;
+  payment_method: string;
+  location: string;
+  items: number;
+  cashier: string;
+  customer_phone: string;
+};
+
+export type SaleHistory = {
+  preset: string;
+  start: string;
+  end: string;
+  count: number;
+  page: number;
+  pages: number;
+  sales_total: string;
+  profit: string;
+  results: SaleRow[];
+};
+
+export type SaleDetail = Omit<SaleResult, "delivery" | "receipt_url"> & {
+  location: string;
+  cost: string;
+  profit: string;
+  cashier: string;
+  customer_phone: string;
+  customer_email: string;
+  notices: { channel: string; destination: string; created_at: string }[];
 };
 
 export type Capability = { code: string; group: string; label: string };
@@ -177,12 +257,24 @@ export function fetchProducts(query = "") {
   return api.get<ProductRow[]>("/api/inventory/products/", { params: { q: query } });
 }
 
+export function fetchProductPage(params: { q?: string; filter?: string; location?: string; page: number }) {
+  return api.get<ProductPage>("/api/inventory/products/", { params });
+}
+
 export function fetchProduct(barcode: string) {
   return api.get<ProductDetail>(`/api/inventory/products/${encodeURIComponent(barcode)}/`);
 }
 
 export function receiveStock(payload: Record<string, string | number>) {
   return api.post<ProductDetail>("/api/inventory/receive/", payload, { timeout: 30000 });
+}
+
+export function transferStock(payload: { barcode: string; from_location: string; to_location: string; quantity: number }) {
+  return api.post<ProductDetail>("/api/inventory/transfer/", payload);
+}
+
+export function fetchVendors() {
+  return api.get<Vendor[]>("/api/inventory/vendors/");
 }
 
 export function updatePreorder(barcode: string, payload: Record<string, number | boolean | null>) {
@@ -209,6 +301,10 @@ export function createBundle(payload: { name: string; price: string; items: { ba
   return api.post<Bundle>("/api/inventory/bundles/", payload);
 }
 
+export function updateBundle(name: string, payload: { name: string; price: string; active: boolean; items: { barcode: string; quantity: number }[] }) {
+  return api.put<Bundle>(`/api/inventory/bundles/${encodeURIComponent(name)}/`, payload);
+}
+
 export function deleteBundle(name: string) {
   return api.delete(`/api/inventory/bundles/${encodeURIComponent(name)}/`);
 }
@@ -229,8 +325,8 @@ export function saveStoreSettings(payload: Partial<StoreSettings>) {
   return api.patch<StoreSettings>("/api/store/settings/", payload);
 }
 
-export function fetchCatalog(query: string, location: string) {
-  return api.get<Catalog>("/api/sales/catalog/", { params: { q: query, location } });
+export function fetchCatalog(query: string, location: string, page = 1) {
+  return api.get<Catalog>("/api/sales/catalog/", { params: { q: query, location, page } });
 }
 
 export function fetchPaymentConfig() {
@@ -255,8 +351,12 @@ export function parseSms(text: string) {
   return api.post<{ amount: string; txn_number: string }>("/api/sales/parse-sms/", { text });
 }
 
-export function fetchAccounting() {
-  return api.get<Accounting>("/api/accounting/");
+export function fetchAccounting(params: Record<string, string> = {}) {
+  return api.get<Accounting>("/api/accounting/", { params });
+}
+
+export function fetchVendorLedger(name: string, page = 1) {
+  return api.get<VendorLedger>(`/api/accounting/vendors/${encodeURIComponent(name)}/`, { params: { page } });
 }
 
 export function payVendor(payload: { vendor: string; amount: string; paid_on: string; note?: string; phone?: string }) {
@@ -287,6 +387,14 @@ export function collectLoan(id: number, amount: string) {
 
 export function fetchSummary(params: Record<string, string>) {
   return api.get<Summary>("/api/summary/", { params });
+}
+
+export function fetchSaleHistory(params: Record<string, string>) {
+  return api.get<SaleHistory>("/api/sales/history/", { params });
+}
+
+export function fetchSale(number: string) {
+  return api.get<SaleDetail>(`/api/sales/history/${encodeURIComponent(number)}/`);
 }
 
 export function fetchCapabilityCatalog() {
